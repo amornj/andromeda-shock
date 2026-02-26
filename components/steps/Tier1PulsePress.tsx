@@ -12,6 +12,14 @@ import {
   Badge,
 } from '@/components/shared/ui';
 
+/**
+ * Tier 1 — Pulse Pressure & DAP Assessment
+ *
+ * Per ANDROMEDA-SHOCK 2 Figure 2:
+ *  - PP < 40 mmHg → assess fluid responsiveness → fluid boluses (up to 1000 mL)
+ *  - PP ≥ 40 AND DAP < 50 mmHg → uptitrate NE for DAP ≥ 50 → reassess CRT
+ *  - PP ≥ 40 AND DAP ≥ 50 → straight to Tier 2
+ */
 export default function Tier1PulsePress({ state, dispatch }: StepProps) {
   const [sbp, setSbp] = useState(state.patient.sbp?.toString() ?? '');
   const [dbp, setDbp] = useState(state.patient.dbp?.toString() ?? '');
@@ -24,31 +32,51 @@ export default function Tier1PulsePress({ state, dispatch }: StepProps) {
   const pp = valid ? Math.round(sbpVal - dbpVal) : null;
   const map = valid ? Math.round((sbpVal + 2 * dbpVal) / 3) : null;
 
-  const ppLow = pp !== null && pp <= 30;
-  const dbpLow = valid && dbpVal < 30;
-  const needsNE = ppLow || dbpLow;
+  // Paper thresholds
+  const ppLow = pp !== null && pp < 40;       // PP < 40 → fluid path
+  const dapLow = valid && dbpVal < 50;        // DAP < 50 → NE path (only when PP ≥ 40)
 
-  const canProceed = valid && (!needsNE || neUptitrated);
+  // Determine branch
+  type Branch = 'fluid' | 'dap' | 'direct_tier2' | null;
+  let branch: Branch = null;
+  if (valid) {
+    if (ppLow) {
+      branch = 'fluid';              // PP < 40 → assess FR → fluids
+    } else if (dapLow) {
+      branch = 'dap';                // PP ≥ 40 AND DAP < 50 → NE for DAP ≥ 50
+    } else {
+      branch = 'direct_tier2';       // PP ≥ 40 AND DAP ≥ 50 → skip to Tier 2
+    }
+  }
+
+  const canProceed = valid && (branch !== 'dap' || neUptitrated);
 
   function handleProceed() {
-    if (!valid) return;
+    if (!valid || !branch) return;
 
-    dispatch({ type: 'UPDATE', data: { sbp: sbpVal, dbp: dbpVal, pp: pp!, map: map! } });
+    dispatch({ type: 'UPDATE', data: { sbp: sbpVal, dbp: dbpVal, pp: pp!, map: map!, tier1Path: branch } });
 
-    if (needsNE) {
+    if (branch === 'fluid') {
       dispatch({
         type: 'LOG',
-        message: `PP ${pp} mmHg${ppLow ? ' ≤30 (low)' : ''}, DBP ${dbpVal} mmHg${dbpLow ? ' <30 (low)' : ''} → NE uptitrated`,
+        message: `PP ${pp} mmHg (< 40) → Low stroke volume suspected → Assess fluid responsiveness`,
         logType: 'warning',
       });
-      dispatch({ type: 'GOTO', phase: 'tier1_fr', ctx: 'post_ne' });
+      dispatch({ type: 'GOTO', phase: 'tier1_fr' });
+    } else if (branch === 'dap') {
+      dispatch({
+        type: 'LOG',
+        message: `PP ${pp} mmHg (>= 40), DAP ${dbpVal} mmHg (< 50) → Vasoplegia → NE uptitrated for DAP >= 50 → CRT reassessment`,
+        logType: 'warning',
+      });
+      dispatch({ type: 'GOTO', phase: 'crt_reassess', ctx: 'post_dap_adjust' });
     } else {
       dispatch({
         type: 'LOG',
-        message: `PP ${pp} mmHg (normal >30), DBP ${dbpVal} mmHg (≥30) — no NE adjustment`,
+        message: `PP ${pp} mmHg (>= 40), DAP ${dbpVal} mmHg (>= 50) → Hemodynamics adequate → Proceeding to Tier 2`,
         logType: 'info',
       });
-      dispatch({ type: 'GOTO', phase: 'tier1_fr' });
+      dispatch({ type: 'GOTO', phase: 'tier2_echo' });
     }
   }
 
@@ -56,14 +84,15 @@ export default function Tier1PulsePress({ state, dispatch }: StepProps) {
     <div className="space-y-6">
       <StepHeader
         tier="Tier 1"
-        step="Step 1 of 2"
-        title="Pulse Pressure Assessment"
-        subtitle="Measure arterial blood pressure and assess vasopressor adequacy"
+        step="Step 1"
+        title="Pulse Pressure & Diastolic Pressure Assessment"
+        subtitle="Identify hemodynamic pattern: hypovolemia (PP < 40) vs vasoplegia (DAP < 50)"
       />
 
-      <Alert variant="info" title="Rationale">
-        Pulse pressure ≤ 30 mmHg or DBP &lt; 30 mmHg suggests inadequate vasopressor
-        tone or vasoplegia. Optimise NE before assessing fluid responsiveness.
+      <Alert variant="info" title="Rationale (ANDROMEDA-SHOCK 2)">
+        A narrow pulse pressure (&lt; 40 mmHg) suggests low stroke volume — assess fluid
+        responsiveness. If PP is adequate (&ge; 40) but diastolic pressure is low (&lt; 50 mmHg),
+        this reflects vasoplegia — uptitrate norepinephrine to achieve DAP &ge; 50 mmHg.
       </Alert>
 
       <div className="grid grid-cols-2 gap-4">
@@ -106,43 +135,44 @@ export default function Tier1PulsePress({ state, dispatch }: StepProps) {
                 {pp} mmHg
               </p>
               <Badge variant={ppLow ? 'danger' : 'success'}>
-                {ppLow ? 'LOW — uptitrate NE' : 'Normal > 30'}
+                {ppLow ? 'LOW (< 40) → Assess FR' : 'Normal (>= 40)'}
               </Badge>
             </Card>
 
             <Card className="text-center py-5">
               <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">
-                Mean Arterial Pressure
+                Diastolic Arterial Pressure
               </p>
               <p
                 className={`text-3xl font-bold font-mono tabular-nums mb-1 ${
-                  map! < 65 ? 'text-yellow-400' : 'text-slate-100'
+                  !ppLow && dapLow ? 'text-red-400' : 'text-slate-100'
                 }`}
               >
-                {map} mmHg
+                {dbpVal} mmHg
               </p>
-              <Badge variant={map! < 65 ? 'warning' : 'neutral'}>
-                {map! < 65 ? 'Below 65 target' : 'Adequate'}
+              <Badge variant={!ppLow && dapLow ? 'danger' : 'neutral'}>
+                {!ppLow && dapLow ? 'LOW (< 50) → Uptitrate NE' : dapLow ? 'Low (< 50)' : 'Adequate (>= 50)'}
               </Badge>
             </Card>
           </div>
 
-          {needsNE && (
+          {/* Branch: PP < 40 → Fluid responsiveness */}
+          {branch === 'fluid' && (
+            <Alert variant="warning" title="Low Pulse Pressure — Assess Fluid Responsiveness">
+              PP &lt; 40 mmHg suggests low stroke volume. Proceed to fluid responsiveness
+              assessment. If fluid responsive, administer 500 mL bolus (max 1000 mL in Tier 1).
+            </Alert>
+          )}
+
+          {/* Branch: PP ≥ 40, DAP < 50 → NE uptitration */}
+          {branch === 'dap' && (
             <>
-              <Alert variant="warning" title="NE Uptitration Required">
-                {ppLow && (
-                  <p>• Pulse Pressure ≤ 30 mmHg → likely vasoplegia</p>
-                )}
-                {dbpLow && (
-                  <p>• DBP &lt; 30 mmHg → insufficient vasopressor tone</p>
-                )}
-                <p className="mt-2 font-semibold">
-                  Target: DBP ≥ 30 mmHg and PP &gt; 30 mmHg. Uptitrate NE by
-                  0.05–0.1 mcg/kg/min increments. Confirm below when done.
-                </p>
+              <Alert variant="warning" title="Vasoplegia — Uptitrate Norepinephrine">
+                PP &ge; 40 mmHg but DAP &lt; 50 mmHg → decreased vascular tone.
+                Uptitrate norepinephrine to achieve DAP &ge; 50 mmHg, then reassess CRT.
               </Alert>
 
-              <Divider label="Confirm action" />
+              <Divider label="Confirm NE adjustment" />
 
               <label className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/40 bg-blue-950/20 cursor-pointer">
                 <input
@@ -153,20 +183,21 @@ export default function Tier1PulsePress({ state, dispatch }: StepProps) {
                 />
                 <div>
                   <p className="text-sm font-medium text-slate-200">
-                    NE uptitrated — target achieved
+                    NE uptitrated — DAP &ge; 50 mmHg achieved
                   </p>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Confirm vasopressor dose has been adjusted before proceeding
+                    Confirm vasopressor dose has been adjusted before proceeding to CRT reassessment
                   </p>
                 </div>
               </label>
             </>
           )}
 
-          {!needsNE && (
-            <Alert variant="success" title="Pulse Pressure Normal">
-              PP &gt; 30 mmHg and DBP ≥ 30 mmHg — vasopressor tone adequate.
-              Proceed to fluid responsiveness assessment.
+          {/* Branch: PP ≥ 40, DAP ≥ 50 → Straight to Tier 2 */}
+          {branch === 'direct_tier2' && (
+            <Alert variant="info" title="Hemodynamics Adequate — Proceed to Tier 2">
+              PP &ge; 40 mmHg and DAP &ge; 50 mmHg — no Tier 1 fluid or NE intervention required.
+              Proceed directly to Tier 2 (echocardiography).
             </Alert>
           )}
         </>
@@ -179,7 +210,15 @@ export default function Tier1PulsePress({ state, dispatch }: StepProps) {
         disabled={!canProceed}
         onClick={handleProceed}
       >
-        Proceed to Fluid Responsiveness Assessment
+        {!valid
+          ? 'Enter blood pressure above'
+          : branch === 'fluid'
+          ? 'PP < 40 → Assess Fluid Responsiveness'
+          : branch === 'dap'
+          ? !neUptitrated
+            ? 'Confirm NE adjustment above'
+            : 'DAP Adjusted → CRT Reassessment'
+          : 'Adequate → Proceed to Tier 2 Echo'}
       </Button>
     </div>
   );

@@ -14,13 +14,13 @@ import {
 
 export default function Tier2LVDobutamine({ state, dispatch }: StepProps) {
   const [started, setStarted] = useState(false);
-  const [dose, setDose] = useState('5');
+  const [dose, setDose] = useState('2.5');
   const [response, setResponse] = useState('');
   const [arrhythmia, setArrhythmia] = useState(false);
   const [tachycardia, setTachycardia] = useState(false);
 
   const doseVal = parseFloat(dose);
-  const doseValid = !isNaN(doseVal) && doseVal >= 2.5 && doseVal <= 20;
+  const doseValid = !isNaN(doseVal) && doseVal >= 2.5 && doseVal <= 7.5;
   const hasAdverseEffect = arrhythmia || tachycardia;
 
   function handleStart() {
@@ -77,26 +77,22 @@ export default function Tier2LVDobutamine({ state, dispatch }: StepProps) {
       {!started && (
         <>
           <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 space-y-3">
-            <p className="text-sm font-semibold text-slate-300">Dobutamine Protocol</p>
+            <p className="text-sm font-semibold text-slate-300">Dobutamine Protocol (ANDROMEDA-SHOCK 2)</p>
             <ul className="space-y-2 text-sm text-slate-400">
               <li className="flex gap-2">
                 <span className="text-blue-400">1.</span>
-                <span>Start at <strong className="text-slate-200">5 mcg/kg/min</strong> IV infusion</span>
+                <span>Start at <strong className="text-slate-200">2.5 mcg/kg/min</strong> IV infusion</span>
               </li>
               <li className="flex gap-2">
                 <span className="text-blue-400">2.</span>
-                <span>Titrate by 2.5–5 mcg/kg/min every 15–30 min to target CRT ≤ 3s</span>
+                <span>Titrate up to <strong className="text-slate-200">7.5 mcg/kg/min</strong> maximum</span>
               </li>
               <li className="flex gap-2">
                 <span className="text-blue-400">3.</span>
-                <span>Maximum dose: <strong className="text-slate-200">20 mcg/kg/min</strong></span>
+                <span><strong className="text-red-400">Stop if:</strong> HR increases &gt; 20% above 120 bpm, arrhythmias, ischemia, or hypotension</span>
               </li>
               <li className="flex gap-2">
                 <span className="text-blue-400">4.</span>
-                <span>Monitor for tachycardia (&gt;120 bpm) and arrhythmias — reduce dose if present</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-blue-400">5.</span>
                 <span>Reassess CRT at <strong className="text-slate-200">1 hour</strong></span>
               </li>
             </ul>
@@ -108,10 +104,10 @@ export default function Tier2LVDobutamine({ state, dispatch }: StepProps) {
             onChange={setDose}
             unit="mcg/kg/min"
             min={2.5}
-            max={20}
+            max={7.5}
             step={2.5}
-            placeholder="5"
-            hint="Typical start: 5 mcg/kg/min. Max: 20 mcg/kg/min."
+            placeholder="2.5"
+            hint="Start 2.5 mcg/kg/min, titrate up to max 7.5 mcg/kg/min."
             required
           />
 
@@ -157,8 +153,8 @@ export default function Tier2LVDobutamine({ state, dispatch }: StepProps) {
                 className="mt-0.5 accent-blue-500 w-4 h-4 flex-shrink-0"
               />
               <div>
-                <p className="text-sm font-medium text-slate-200">Significant tachycardia (&gt;120 bpm)</p>
-                <p className="text-xs text-slate-400">Dose-dependent adverse effect — reduce infusion rate</p>
+                <p className="text-sm font-medium text-slate-200">HR increased &gt;20% above 120 bpm, ischemia, or hypotension</p>
+                <p className="text-xs text-slate-400">Stop dobutamine per protocol safety criteria</p>
               </div>
             </label>
           </div>

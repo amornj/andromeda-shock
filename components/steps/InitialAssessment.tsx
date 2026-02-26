@@ -63,9 +63,10 @@ export default function InitialAssessment({ dispatch }: StepProps) {
           <Divider label="Baseline CRT Measurement" />
 
           <Alert variant="neutral" title="Standardised CRT Technique">
-            Apply firm pressure to the middle finger pad for exactly 15 seconds under
-            standard white light. Release and count seconds until normal skin colour
-            returns. Perform 3 measurements and use the median.
+            Apply firm pressure to the ventral surface of the distal phalanx using a glass
+            microscope slide. Increase pressure until skin is blank, maintain for <strong>10 seconds</strong>,
+            then release. Measure time to return to normal skin colour with a chronometer.
+            Perform 3 measurements and use the median. CRT &gt; 3 seconds = abnormal.
           </Alert>
 
           <NumberInput

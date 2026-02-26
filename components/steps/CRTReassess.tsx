@@ -17,7 +17,17 @@ import {
 function getNextPhaseAfterAbnormal(state: AlgorithmState): AlgorithmPhase {
   const { crtCtx, tier2Done, patient } = state;
 
-  // Still in Tier 1 — haven't done FR yet
+  // After DAP adjustment (PP >= 40, DAP < 50 path) → go straight to Tier 2
+  if (crtCtx === 'post_dap_adjust') {
+    if (!tier2Done.echo) return 'tier2_echo';
+  }
+
+  // After Tier 1 fluid → go to Tier 2
+  if (crtCtx === 'post_fluid1') {
+    if (!tier2Done.echo) return 'tier2_echo';
+  }
+
+  // Still in Tier 1 — haven't done FR yet (only if on fluid path)
   if (crtCtx === 'initial' || crtCtx === 'post_ne') {
     return 'tier1_fr';
   }
@@ -44,12 +54,13 @@ function getNextPhaseAfterAbnormal(state: AlgorithmState): AlgorithmPhase {
 const ctxLabels: Record<string, string> = {
   initial: 'Initial assessment',
   post_ne: 'After NE uptitration (Tier 1)',
+  post_dap_adjust: 'After DAP adjustment (NE for DAP >= 50 mmHg)',
   post_fluid1: 'After Tier 1 fluid resuscitation',
   post_fluid2: 'After repeat fluid assessment',
   post_tier2_lv: 'After LV dobutamine therapy',
   post_tier2_rv: 'After RV management',
   post_tier2_fr: 'After Tier 2 fluid responsiveness',
-  post_map: 'After MAP test (80–85 mmHg)',
+  post_map: 'After MAP test (80-85 mmHg)',
   post_dobutamine: 'After dobutamine test',
 };
 
@@ -88,7 +99,7 @@ export default function CRTReassess({ state, dispatch }: StepProps) {
     <div className="space-y-6">
       <StepHeader
         step="CRT Reassessment"
-        title="Capillary Refill Time — Reassessment"
+        title="Capillary Refill Time -- Reassessment"
         subtitle="Measure CRT to evaluate treatment response and determine next steps"
       />
 
@@ -107,8 +118,10 @@ export default function CRTReassess({ state, dispatch }: StepProps) {
       </div>
 
       <Alert variant="neutral" title="CRT Measurement Technique">
-        Apply firm pressure to the middle finger pad for 15 seconds under standard
-        lighting. Release and count seconds until normal colour returns.
+        Apply firm pressure to the ventral surface of the distal phalanx using a glass
+        microscope slide. Increase pressure until skin is blank, maintain for <strong>10 seconds</strong>,
+        then release. Measure time to return to normal skin colour with a chronometer.
+        CRT &gt; 3 seconds = abnormal.
       </Alert>
 
       <NumberInput
@@ -120,7 +133,7 @@ export default function CRTReassess({ state, dispatch }: StepProps) {
         max={15}
         step={0.5}
         placeholder="e.g. 3.5"
-        hint="Repeat measurement 3× and use median. Normal ≤ 3 seconds."
+        hint="Repeat measurement 3x and use median. Normal: <= 3 seconds."
         required
       />
 
@@ -139,7 +152,7 @@ export default function CRTReassess({ state, dispatch }: StepProps) {
             </p>
             <div className="flex items-center justify-center gap-2 flex-wrap">
               <Badge variant={isNormal ? 'success' : 'danger'}>
-                {isNormal ? 'NORMALIZED ≤ 3s' : 'Still ABNORMAL > 3s'}
+                {isNormal ? 'NORMALIZED <= 3s' : 'Still ABNORMAL > 3s'}
               </Badge>
               {trend && (
                 <Badge
@@ -151,7 +164,7 @@ export default function CRTReassess({ state, dispatch }: StepProps) {
                       : 'neutral'
                   }
                 >
-                  {trend === 'improving' ? '↓ Improving' : trend === 'worsening' ? '↑ Worsening' : '→ Unchanged'}
+                  {trend === 'improving' ? 'Improving' : trend === 'worsening' ? 'Worsening' : 'Unchanged'}
                 </Badge>
               )}
             </div>
@@ -163,12 +176,12 @@ export default function CRTReassess({ state, dispatch }: StepProps) {
                 const next = getNextPhaseAfterAbnormal(state);
                 const labels: Record<string, string> = {
                   tier1_fr: 'Proceed to Tier 1 Fluid Responsiveness Assessment',
-                  tier2_echo: 'Proceed to Tier 2 — Bedside Echocardiography',
-                  tier2_lv_dobutamine: 'Proceed to Tier 2 — LV Dobutamine Therapy',
-                  tier2_rv_management: 'Proceed to Tier 2 — RV Management',
-                  tier2_fr: 'Proceed to Tier 2 — Fluid Responsiveness',
-                  tier2_map: 'Proceed to Tier 2 — MAP Test (Chronic HTN)',
-                  tier2_dobutamine: 'Proceed to Tier 2 — Dobutamine Test',
+                  tier2_echo: 'Proceed to Tier 2 -- Bedside Echocardiography',
+                  tier2_lv_dobutamine: 'Proceed to Tier 2 -- LV Dobutamine Therapy',
+                  tier2_rv_management: 'Proceed to Tier 2 -- RV Management',
+                  tier2_fr: 'Proceed to Tier 2 -- Fluid Responsiveness',
+                  tier2_map: 'Proceed to Tier 2 -- MAP Test (Chronic HTN)',
+                  tier2_dobutamine: 'Proceed to Tier 2 -- Dobutamine Test',
                   tier2_rescue: 'Proceed to Rescue Therapies',
                 };
                 return labels[next] ?? `Next: ${next}`;
@@ -178,7 +191,7 @@ export default function CRTReassess({ state, dispatch }: StepProps) {
 
           {isNormal && (
             <Alert variant="success" title="CRT Normalised">
-              CRT ≤ 3s — target achieved. Continue hourly monitoring per protocol.
+              CRT &le; 3s -- target achieved. Continue hourly monitoring per protocol.
             </Alert>
           )}
         </>
@@ -221,8 +234,8 @@ export default function CRTReassess({ state, dispatch }: StepProps) {
         {!crtValid
           ? 'Enter CRT value above'
           : isNormal
-          ? 'CRT Normal → Normal Monitoring'
-          : 'CRT Abnormal → Next Intervention'}
+          ? 'CRT Normal -- Hourly Monitoring'
+          : 'CRT Abnormal -- Next Intervention'}
       </Button>
     </div>
   );

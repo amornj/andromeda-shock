@@ -44,7 +44,13 @@ function FRAssessment({ state, dispatch }: StepProps) {
   } else if (method === 'ppv' && frResult) {
     frPositive = frResult === 'positive';
     frCanDetermine = true;
-  } else if (method === 'none' || method === 'not_possible') {
+  } else if (method === 'ivc' && frResult) {
+    frPositive = frResult === 'positive';
+    frCanDetermine = true;
+  } else if (method === 'eeot' && frResult) {
+    frPositive = frResult === 'positive';
+    frCanDetermine = true;
+  } else if (method === 'not_possible') {
     frPositive = false;
     frCanDetermine = true;
   }
@@ -59,7 +65,7 @@ function FRAssessment({ state, dispatch }: StepProps) {
     if (safetyIssue) {
       dispatch({
         type: 'LOG',
-        message: `FR assessment: ${frPositive ? 'Positive' : 'Negative'} (${method}) — SAFETY ISSUE: ${worseningOx ? 'worsening oxygenation' : ''}${newRales ? ' new rales' : ''} → Fluid withheld`,
+        message: `FR assessment: ${frPositive ? 'Positive' : 'Negative'} (${method}) -- SAFETY ISSUE: ${worseningOx ? 'worsening oxygenation' : ''}${newRales ? ' new rales' : ''} -- Fluid withheld`,
         logType: 'danger',
       });
       dispatch({ type: 'GOTO', phase: 'crt_reassess', ctx: 'post_fluid1' });
@@ -69,14 +75,14 @@ function FRAssessment({ state, dispatch }: StepProps) {
     if (frPositive) {
       dispatch({
         type: 'LOG',
-        message: `FR assessment: POSITIVE (method: ${method}) — Proceed to fluid bolus`,
+        message: `FR assessment: POSITIVE (method: ${method}) -- Proceed to 500 mL fluid bolus`,
         logType: 'info',
       });
       dispatch({ type: 'GOTO', phase: 'tier1_fluid' });
     } else {
       dispatch({
         type: 'LOG',
-        message: `FR assessment: NEGATIVE (method: ${method}) — Skip fluid bolus → CRT reassessment`,
+        message: `FR assessment: NEGATIVE (method: ${method}) -- Skip fluid bolus -- CRT reassessment`,
         logType: 'info',
       });
       dispatch({ type: 'GOTO', phase: 'crt_reassess', ctx: 'post_fluid1' });
@@ -94,14 +100,15 @@ function FRAssessment({ state, dispatch }: StepProps) {
     <div className="space-y-6">
       <StepHeader
         tier="Tier 1"
-        step="Step 2 of 2"
+        step="Step 2"
         title="Fluid Responsiveness Assessment"
-        subtitle="Determine whether a fluid bolus is likely to increase cardiac output"
+        subtitle="Systematic FR assessment before any fluid administration (PP < 40 mmHg pathway)"
       />
 
-      <Alert variant="info" title="Choose the most reliable available method">
-        Passive Leg Raise with VTI change is the preferred method. Use PLR + clinical
-        assessment if echo is unavailable. Avoid fluids if FR is negative or contraindicated.
+      <Alert variant="info" title="Assess before giving fluids">
+        Per ANDROMEDA-SHOCK 2: fluid responsiveness MUST be assessed before any fluid
+        bolus. If FR positive, give 500 mL crystalloid or colloid over 30 minutes.
+        Maximum 1000 mL (2 boluses) in Tier 1.
       </Alert>
 
       <RadioGroup
@@ -113,26 +120,34 @@ function FRAssessment({ state, dispatch }: StepProps) {
           {
             value: 'plr_vti',
             label: 'Passive Leg Raise + VTI (Echo)',
-            description: 'Raise legs 45°, measure aortic VTI before and after 1 min. ≥10% increase = positive.',
+            description: 'Raise legs 45 deg, measure aortic VTI before and after 1 min. >= 15% increase = positive.',
             badge: 'Preferred',
             badgeVariant: 'success',
           },
           {
             value: 'plr',
-            label: 'Passive Leg Raise (clinical)',
-            description: 'Raise legs 45° for 1 min. Assess change in pulse pressure, MAP, or CO clinically.',
-            badge: 'Alternative',
-            badgeVariant: 'info',
-          },
-          {
-            value: 'vti',
-            label: 'End-expiratory Occlusion + VTI',
-            description: '15-sec end-expiratory hold: ≥10% VTI increase = positive. Ventilated patients only.',
+            label: 'Passive Leg Raise + Pulse Pressure',
+            description: 'Raise legs 45 deg for 1 min. >= 12% PP change = positive.',
           },
           {
             value: 'ppv',
-            label: 'Pulse Pressure Variation (PPV/SVV)',
-            description: 'PPV > 13% = fluid responsive. Only valid: fully ventilated, regular rhythm, TV ≥ 8 mL/kg.',
+            label: 'Pulse Pressure Variation (PPV)',
+            description: 'PPV > 13% = fluid responsive. Requires: ventilated, no spontaneous breaths, sinus rhythm, TV >= 8 mL/kg.',
+          },
+          {
+            value: 'ivc',
+            label: 'IVC Variation (Echo)',
+            description: 'IVC distensibility > 15% during mechanical ventilation = positive.',
+          },
+          {
+            value: 'eeot',
+            label: 'End-Expiratory Occlusion Test',
+            description: '15-sec end-expiratory hold: > 5% increase in CO = positive. Ventilated patients only.',
+          },
+          {
+            value: 'vti',
+            label: 'Mini-fluid Challenge + VTI',
+            description: '100 mL challenge: >= 10% VTI increase = positive.',
           },
           {
             value: 'not_possible',
@@ -175,14 +190,14 @@ function FRAssessment({ state, dispatch }: StepProps) {
                 {vtiChange > 0 ? '+' : ''}{vtiChange}%
               </p>
               <Badge variant={vtiChange >= 10 ? 'success' : 'danger'}>
-                {vtiChange >= 10 ? 'FR POSITIVE (≥10%)' : 'FR NEGATIVE (<10%)'}
+                {vtiChange >= 10 ? 'FR POSITIVE' : 'FR NEGATIVE'}
               </Badge>
             </Card>
           )}
         </div>
       )}
 
-      {(method === 'plr' || method === 'ppv') && (
+      {(method === 'plr' || method === 'ppv' || method === 'ivc' || method === 'eeot') && (
         <RadioGroup
           label="FR result"
           name="fr_result"
@@ -192,20 +207,12 @@ function FRAssessment({ state, dispatch }: StepProps) {
             {
               value: 'positive',
               label: 'Fluid Responsive',
-              description:
-                method === 'ppv'
-                  ? 'PPV/SVV > 13%'
-                  : 'Clear increase in MAP, pulse pressure, or CO after PLR',
               badge: 'Positive',
               badgeVariant: 'success',
             },
             {
               value: 'negative',
               label: 'Not Fluid Responsive',
-              description:
-                method === 'ppv'
-                  ? 'PPV/SVV ≤ 13%'
-                  : 'No meaningful change after PLR',
               badge: 'Negative',
               badgeVariant: 'danger',
             },
@@ -217,18 +224,18 @@ function FRAssessment({ state, dispatch }: StepProps) {
         <>
           <Divider label="Safety checks" />
           <p className="text-xs text-slate-400">
-            Check for fluid administration contraindications before proceeding:
+            Check for fluid administration contraindications:
           </p>
           <CheckboxItem
             label="Worsening oxygenation"
-            description="SpO2 decreasing or FiO2 requirements increasing since last assessment"
+            description=">= 3-point rise in FiO2 requirement or >= 5 cmH2O increase in PEEP"
             checked={worseningOx}
             onChange={setWorseningOx}
             variant="danger"
           />
           <CheckboxItem
-            label="New pulmonary rales"
-            description="New or worsening bilateral crackles on auscultation"
+            label="New pulmonary rales or B-lines"
+            description="New or worsening bilateral crackles / B-lines suggesting fluid overload"
             checked={newRales}
             onChange={setNewRales}
             variant="danger"
@@ -238,19 +245,19 @@ function FRAssessment({ state, dispatch }: StepProps) {
 
       {safetyIssue && frCanDetermine && (
         <Alert variant="danger" title="Fluid Administration Contraindicated">
-          Safety issue detected — do NOT administer fluid bolus. Proceed to CRT reassessment.
+          Safety issue detected -- do NOT administer fluid bolus. Proceed to CRT reassessment.
         </Alert>
       )}
 
       {frCanDetermine && !safetyIssue && frPositive && (
         <Alert variant="success" title="Fluid Responsive">
-          FR positive → Administer 100 mL crystalloid bolus over 10 minutes.
+          FR positive -- administer <strong>500 mL crystalloid or colloid over 30 minutes</strong>.
         </Alert>
       )}
 
       {frCanDetermine && !safetyIssue && frPositive === false && method !== 'not_possible' && (
         <Alert variant="warning" title="Not Fluid Responsive">
-          FR negative → Skip fluid bolus. Proceed directly to CRT reassessment.
+          FR negative -- skip fluid bolus. Proceed to CRT reassessment.
         </Alert>
       )}
 
@@ -264,10 +271,10 @@ function FRAssessment({ state, dispatch }: StepProps) {
         {!canProceed
           ? 'Complete assessment above'
           : safetyIssue
-          ? 'Safety Issue — Skip Fluid → CRT Reassessment'
+          ? 'Safety Issue -- Skip Fluid -- CRT Reassessment'
           : frPositive
-          ? 'Fluid Responsive → Administer Bolus'
-          : 'Not Fluid Responsive → CRT Reassessment'}
+          ? 'FR Positive -- Give 500 mL Bolus'
+          : 'FR Negative -- CRT Reassessment'}
       </Button>
     </div>
   );
@@ -281,46 +288,45 @@ function FluidBolus({ state, dispatch }: StepProps) {
   const [frStillPositive, setFrStillPositive] = useState('');
   const [worseningOx, setWorseningOx] = useState(false);
   const [newRales, setNewRales] = useState(false);
+  const [cvpHigh, setCvpHigh] = useState(false);
 
   const bolusCount = state.patient.fluidBoluses;
   const totalMl = state.patient.totalFluidMl;
-  const safetyIssue = worseningOx || newRales;
-
-  function handleGiveAnother() {
-    const newTotal = totalMl + 100;
-    dispatch({ type: 'UPDATE', data: { fluidBoluses: bolusCount + 1, totalFluidMl: newTotal } });
-    dispatch({
-      type: 'LOG',
-      message: `Fluid bolus #${bolusCount + 1}: 100 mL crystalloid given. Total: ${newTotal} mL`,
-      logType: 'info',
-    });
-    setConfirmed(false);
-    setCheckAgain(false);
-    setFrStillPositive('');
-    setWorseningOx(false);
-    setNewRales(false);
-  }
-
-  function handleDone() {
-    const newTotal = totalMl + (confirmed && bolusCount === 0 ? 100 : 0);
-    const finalTotal = bolusCount === 0 ? (state.patient.totalFluidMl || 0) + 100 : state.patient.totalFluidMl;
-    dispatch({
-      type: 'LOG',
-      message: `Fluid resuscitation complete. Total boluses: ${bolusCount + (bolusCount === 0 ? 1 : 0)}, total: ${finalTotal} mL → CRT reassessment`,
-      logType: 'info',
-    });
-    dispatch({ type: 'GOTO', phase: 'crt_reassess', ctx: 'post_fluid1' });
-  }
+  const safetyIssue = worseningOx || newRales || cvpHigh;
+  const maxTier1Fluid = 1000; // per protocol
+  const bolusSize = 500;
+  const atLimit = totalMl >= maxTier1Fluid;
 
   function handleFirstBolus() {
-    const newTotal = (state.patient.totalFluidMl || 0) + 100;
+    const newTotal = (state.patient.totalFluidMl || 0) + bolusSize;
     dispatch({ type: 'UPDATE', data: { fluidBoluses: bolusCount + 1, totalFluidMl: newTotal } });
     dispatch({
       type: 'LOG',
-      message: `Fluid bolus #${bolusCount + 1}: 100 mL crystalloid given. Total: ${newTotal} mL`,
+      message: `Fluid bolus #${bolusCount + 1}: ${bolusSize} mL over 30 min. Total: ${newTotal} mL`,
       logType: 'info',
     });
     setCheckAgain(true);
+  }
+
+  function handleGiveSecond() {
+    const newTotal = state.patient.totalFluidMl + bolusSize;
+    dispatch({ type: 'UPDATE', data: { fluidBoluses: state.patient.fluidBoluses + 1, totalFluidMl: newTotal } });
+    dispatch({
+      type: 'LOG',
+      message: `Fluid bolus #${state.patient.fluidBoluses + 1}: ${bolusSize} mL over 30 min. Total: ${newTotal} mL`,
+      logType: 'info',
+    });
+    // After second bolus → CRT reassess
+    dispatch({ type: 'GOTO', phase: 'crt_reassess', ctx: 'post_fluid1' });
+  }
+
+  function handleDone() {
+    dispatch({
+      type: 'LOG',
+      message: `Tier 1 fluid complete. Total: ${state.patient.totalFluidMl} mL in ${state.patient.fluidBoluses} bolus(es) -- CRT reassessment`,
+      logType: 'info',
+    });
+    dispatch({ type: 'GOTO', phase: 'crt_reassess', ctx: 'post_fluid1' });
   }
 
   return (
@@ -328,8 +334,8 @@ function FluidBolus({ state, dispatch }: StepProps) {
       <StepHeader
         tier="Tier 1"
         step="Fluid Bolus"
-        title="Administer 100 mL Crystalloid Bolus"
-        subtitle="Fluid responsiveness confirmed — give crystalloid and reassess"
+        title="Administer 500 mL Fluid Bolus"
+        subtitle="Fluid responsiveness confirmed -- give 500 mL crystalloid or colloid over 30 minutes"
       />
 
       <div className="grid grid-cols-2 gap-3">
@@ -340,13 +346,14 @@ function FluidBolus({ state, dispatch }: StepProps) {
         <Card className="text-center py-4">
           <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Total Volume</p>
           <p className="text-3xl font-bold font-mono text-blue-400">{state.patient.totalFluidMl} mL</p>
+          <p className="text-xs text-slate-500 mt-1">Max {maxTier1Fluid} mL in Tier 1</p>
         </Card>
       </div>
 
-      <Alert variant="info" title="Bolus Protocol">
-        Give <strong>100 mL 0.9% NaCl or Lactated Ringer&apos;s</strong> IV over 10 minutes.
-        Monitor SpO2 and respiratory status during infusion. Maximum 3 boluses before
-        mandatory CRT reassessment.
+      <Alert variant="info" title="Bolus Protocol (ANDROMEDA-SHOCK 2)">
+        Give <strong>500 mL crystalloid or 5% albumin</strong> IV over <strong>30 minutes</strong>.
+        Maximum 2 boluses (1000 mL total) in Tier 1. Reassess CRT after each bolus.
+        If CRT still abnormal after first bolus, reassess FR before giving second.
       </Alert>
 
       {!checkAgain && (
@@ -360,7 +367,7 @@ function FluidBolus({ state, dispatch }: StepProps) {
             />
             <div>
               <p className="text-sm font-medium text-slate-200">
-                100 mL bolus administered over 10 minutes
+                500 mL bolus administered over 30 minutes
               </p>
               <p className="text-xs text-slate-400 mt-0.5">
                 Confirm infusion complete before proceeding
@@ -375,81 +382,95 @@ function FluidBolus({ state, dispatch }: StepProps) {
             disabled={!confirmed}
             onClick={handleFirstBolus}
           >
-            Bolus Given — Check FR Again
+            Bolus Given -- Assess Response
           </Button>
         </>
       )}
 
       {checkAgain && (
         <>
-          <Divider label="Re-assess Fluid Responsiveness" />
+          <Divider label="After bolus -- reassess CRT and FR" />
 
-          <RadioGroup
-            label="Is the patient still fluid responsive?"
-            name="fr_repeat"
-            value={frStillPositive}
-            onChange={setFrStillPositive}
-            options={[
-              {
-                value: 'yes',
-                label: 'Still fluid responsive',
-                description: 'Repeat FR assessment remains positive and within limits',
-                badge: 'Give another',
-                badgeVariant: 'info',
-              },
-              {
-                value: 'no',
-                label: 'No longer fluid responsive',
-                description: 'FR assessment now negative — stop fluids',
-                badge: 'Stop fluids',
-                badgeVariant: 'neutral',
-              },
-            ]}
-          />
+          <Alert variant="neutral" title="Decision Point">
+            Reassess CRT. If still abnormal AND patient is still fluid responsive AND within
+            safety limits, a second 500 mL bolus can be administered (max 1000 mL total).
+          </Alert>
 
-          {frStillPositive && (
+          {!atLimit && (
+            <RadioGroup
+              label="Is the patient still fluid responsive for a second bolus?"
+              name="fr_repeat"
+              value={frStillPositive}
+              onChange={setFrStillPositive}
+              options={[
+                {
+                  value: 'yes',
+                  label: 'Still fluid responsive + CRT still abnormal',
+                  description: 'FR reassessment positive -- consider second 500 mL bolus',
+                  badge: 'Give 2nd bolus',
+                  badgeVariant: 'info',
+                },
+                {
+                  value: 'no',
+                  label: 'No longer fluid responsive OR CRT normalised',
+                  description: 'Stop fluids -- proceed to CRT reassessment',
+                  badge: 'Stop fluids',
+                  badgeVariant: 'neutral',
+                },
+              ]}
+            />
+          )}
+
+          {atLimit && (
+            <Alert variant="warning" title="Tier 1 Fluid Limit Reached">
+              {maxTier1Fluid} mL administered -- maximum Tier 1 fluid reached. Proceed to CRT reassessment.
+            </Alert>
+          )}
+
+          {frStillPositive === 'yes' && !atLimit && (
             <>
-              <Divider label="Safety checks" />
+              <Divider label="Safety checks before 2nd bolus" />
               <CheckboxItem
                 label="Worsening oxygenation"
-                description="SpO2 decreasing or increasing FiO2 requirement"
+                description=">= 3-point rise in FiO2 or >= 5 cmH2O PEEP increase"
                 checked={worseningOx}
                 onChange={setWorseningOx}
                 variant="danger"
               />
               <CheckboxItem
-                label="New pulmonary rales"
-                description="New bilateral crackles on auscultation"
+                label="New pulmonary rales / B-lines"
+                description="New bilateral crackles or B-lines on lung ultrasound"
                 checked={newRales}
                 onChange={setNewRales}
+                variant="danger"
+              />
+              <CheckboxItem
+                label="CVP > 15 mmHg"
+                description="Central venous pressure exceeds safety threshold"
+                checked={cvpHigh}
+                onChange={setCvpHigh}
                 variant="danger"
               />
             </>
           )}
 
-          {safetyIssue && (
-            <Alert variant="danger" title="Stop — Safety Issue">
-              Fluid administration must stop due to safety concern. Proceed to CRT reassessment.
-            </Alert>
-          )}
-
-          {state.patient.fluidBoluses >= 3 && !safetyIssue && (
-            <Alert variant="warning" title="Maximum Boluses Reached">
-              3 boluses given — mandatory CRT reassessment before further fluids.
+          {safetyIssue && frStillPositive === 'yes' && (
+            <Alert variant="danger" title="Safety Limit -- No Further Fluids">
+              Safety contraindication detected. Proceed to CRT reassessment without additional fluid.
             </Alert>
           )}
 
           <div className="flex gap-3">
-            {frStillPositive === 'yes' && !safetyIssue && state.patient.fluidBoluses < 3 && (
-              <Button variant="primary" size="lg" fullWidth onClick={handleGiveAnother}>
-                Give Another 100 mL Bolus
+            {frStillPositive === 'yes' && !safetyIssue && !atLimit && (
+              <Button variant="primary" size="lg" fullWidth onClick={handleGiveSecond}>
+                Give 2nd 500 mL Bolus
               </Button>
             )}
-            <Button variant="ghost" size="lg" fullWidth onClick={handleDone}>
-              {safetyIssue || frStillPositive === 'no' || state.patient.fluidBoluses >= 3
-                ? 'Proceed to CRT Reassessment'
-                : 'Done — CRT Reassessment'}
-            </Button>
+            {(frStillPositive === 'no' || safetyIssue || atLimit) && (
+              <Button variant="ghost" size="lg" fullWidth onClick={handleDone}>
+                Proceed to CRT Reassessment
+              </Button>
+            )}
           </div>
         </>
       )}

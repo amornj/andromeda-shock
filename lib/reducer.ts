@@ -30,6 +30,7 @@ export const initialPatient: PatientData = {
   cvp: null,
   worseningOx: false,
   newRales: false,
+  tier1Path: null,
   hasChronicHTN: null,
   fac: null,
   aorticVTI: null,

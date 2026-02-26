@@ -17,6 +17,7 @@ export type AlgorithmPhase =
 export type CRTContext =
   | 'initial'
   | 'post_ne'
+  | 'post_dap_adjust'
   | 'post_fluid1'
   | 'post_fluid2'
   | 'post_tier2_lv'
@@ -54,6 +55,7 @@ export interface PatientData {
   aorticVTI: number | null;
   rvLvRatio: number | null;
   cardiacDx: 'lv' | 'rv' | 'none' | null;
+  tier1Path: 'fluid' | 'dap' | 'direct_tier2' | null;
   mapTestResult: boolean | null;
   dobutamineResult: boolean | null;
   lvDobutamineResult: boolean | null;

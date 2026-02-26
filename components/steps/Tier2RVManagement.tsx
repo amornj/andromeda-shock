@@ -37,33 +37,33 @@ export default function Tier2RVManagement({ state, dispatch }: StepProps) {
   const rvActions = [
     {
       key: 'avoid_fluid',
-      label: 'Avoid additional fluid loading',
-      description: 'RV is preload-dependent but fluid overload worsens RV dilation',
+      label: 'No further fluid administration',
+      description: 'Per protocol: no further fluid loading recommended in RV failure',
+    },
+    {
+      key: 'reduce_peep',
+      label: 'Reduce PEEP < 10 cmH2O',
+      description: 'Decrease right ventricular afterload by lowering intrathoracic pressure',
+    },
+    {
+      key: 'limit_pplat',
+      label: 'Limit plateau pressure < 28 cmH2O',
+      description: 'Prevent further RV afterload increase from excessive airway pressures',
+    },
+    {
+      key: 'prone',
+      label: 'Consider prone positioning (if severe ARDS)',
+      description: 'Reduces RV afterload and improves oxygenation in severe ARDS patients',
     },
     {
       key: 'vasopressin',
-      label: 'Add vasopressin 0.03–0.04 U/min',
+      label: 'Add vasopressin 0.03-0.04 U/min (optional)',
       description: 'Maintains systemic MAP without increasing pulmonary vascular resistance',
     },
     {
       key: 'iNO',
-      label: 'Inhaled nitric oxide (if available)',
-      description: 'Pulmonary vasodilator to reduce RV afterload — 10–40 ppm',
-    },
-    {
-      key: 'prone',
-      label: 'Consider prone positioning',
-      description: 'If ARDS present — reduces RV afterload, improves oxygenation',
-    },
-    {
-      key: 'optimise_vent',
-      label: 'Optimise ventilator settings',
-      description: 'Reduce auto-PEEP, avoid hypercapnia, target SpO2 > 92%',
-    },
-    {
-      key: 'rate',
-      label: 'Heart rate optimisation',
-      description: 'Target 60–100 bpm. RV is rate-sensitive — treat tachyarrhythmias',
+      label: 'Inhaled nitric oxide (if available, optional)',
+      description: 'Pulmonary vasodilator to reduce RV afterload -- 10-40 ppm',
     },
   ];
 
