@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ANDROMEDA-SHOCK 2 — CRT-PHR Algorithm Explainer</title>
+<style>
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --surface2: #334155; --border: #475569;
+    --text: #e2e8f0; --muted: #94a3b8;
+    --blue: #3b82f6; --green: #22c55e; --yellow: #eab308; --red: #ef4444;
+    --purple: #a855f7; --orange: #f97316; --cyan: #06b6d4; --pink: #ec4899;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem; background: linear-gradient(135deg, var(--blue), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  h2 { font-size: 1.4rem; font-weight: 700; color: var(--blue); margin: 2.5rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--surface2); }
+  h3 { font-size: 1.1rem; font-weight: 600; color: var(--cyan); margin: 1.5rem 0 0.75rem; }
+  .subtitle { color: var(--muted); font-size: 1rem; margin-bottom: 2rem; }
+  .card { background: var(--surface); border: 1px solid var(--surface2); border-radius: 1rem; padding: 1.5rem; margin: 1rem 0; }
+  .card-accent { border-left: 4px solid var(--blue); }
+  .card-warn { border-left: 4px solid var(--yellow); background: rgba(234,179,8,0.05); }
+  .card-danger { border-left: 4px solid var(--red); background: rgba(239,68,68,0.05); }
+  .card-success { border-left: 4px solid var(--green); background: rgba(34,197,94,0.05); }
+  code { background: var(--surface2); padding: 0.15em 0.4em; border-radius: 4px; font-size: 0.9em; color: var(--cyan); font-family: 'SF Mono', Monaco, monospace; }
+  .badge { display: inline-block; padding: 0.2em 0.7em; border-radius: 999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .badge-blue { background: rgba(59,130,246,0.2); color: var(--blue); }
+  .badge-green { background: rgba(34,197,94,0.2); color: var(--green); }
+  .badge-yellow { background: rgba(234,179,8,0.2); color: var(--yellow); }
+  .badge-red { background: rgba(239,68,68,0.2); color: var(--red); }
+  .badge-purple { background: rgba(168,85,247,0.2); color: var(--purple); }
+  .badge-orange { background: rgba(249,115,22,0.2); color: var(--orange); }
+  .badge-pink { background: rgba(236,72,153,0.2); color: var(--pink); }
+
+  /* Flow */
+  .flow { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 2rem 0; }
+  .flow-node { background: var(--surface); border: 2px solid var(--surface2); border-radius: 1rem; padding: 1rem 1.5rem; text-align: center; min-width: 280px; max-width: 420px; position: relative; transition: transform 0.2s; }
+  .flow-node:hover { transform: scale(1.02); }
+  .flow-node.start { border-color: var(--green); background: rgba(34,197,94,0.08); }
+  .flow-node.decision { border-color: var(--yellow); background: rgba(234,179,8,0.06); }
+  .flow-node.action { border-color: var(--blue); background: rgba(59,130,246,0.08); }
+  .flow-node.result { border-color: var(--purple); background: rgba(168,85,247,0.08); }
+  .flow-node.danger { border-color: var(--red); background: rgba(239,68,68,0.08); }
+  .flow-node .label { font-weight: 700; font-size: 0.95rem; }
+  .flow-node .detail { font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem; }
+  .flow-arrow { width: 2px; height: 28px; background: var(--border); position: relative; }
+  .flow-arrow::after { content: '▼'; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); color: var(--border); font-size: 0.7rem; }
+  .flow-branch { display: flex; gap: 1.5rem; align-items: flex-start; justify-content: center; width: 100%; flex-wrap: wrap; }
+  .flow-branch > div { display: flex; flex-direction: column; align-items: center; gap: 0; flex: 1; min-width: 200px; max-width: 320px; }
+  .branch-label { font-size: 0.8rem; font-weight: 700; padding: 0.3em 0.8em; border-radius: 999px; margin-bottom: 0.5rem; }
+  .branch-yes { background: rgba(34,197,94,0.2); color: var(--green); }
+  .branch-no { background: rgba(239,68,68,0.2); color: var(--red); }
+
+  .flow-branch-3 { display: flex; gap: 1rem; align-items: flex-start; justify-content: center; width: 100%; flex-wrap: wrap; }
+  .flow-branch-3 > div { display: flex; flex-direction: column; align-items: center; gap: 0; flex: 1; min-width: 180px; max-width: 280px; }
+
+  /* Table */
+  .tbl { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  .tbl th, .tbl td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--surface2); font-size: 0.9rem; }
+  .tbl th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+  .tbl tr:hover td { background: rgba(59,130,246,0.05); }
+
+  /* Phase map */
+  .phase-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; margin: 1rem 0; }
+  .phase-card { background: var(--bg); border: 1px solid var(--surface2); border-radius: 0.75rem; padding: 1rem; transition: border-color 0.2s; cursor: default; }
+  .phase-card:hover { border-color: var(--blue); }
+  .phase-card .ph-name { font-family: monospace; color: var(--cyan); font-size: 0.8rem; font-weight: 600; }
+  .phase-card .ph-title { font-size: 0.95rem; font-weight: 700; color: var(--text); margin: 0.25rem 0; }
+  .phase-card .ph-desc { font-size: 0.8rem; color: var(--muted); }
+
+  /* Interactive sim */
+  .sim { background: var(--surface); border: 2px solid var(--surface2); border-radius: 1rem; padding: 1.5rem; margin: 1.5rem 0; }
+  .sim-display { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin: 1rem 0; }
+  .sim-box { background: var(--bg); border-radius: 0.75rem; padding: 1rem; text-align: center; }
+  .sim-box .num { font-size: 1.4rem; font-weight: 800; font-family: 'SF Mono', Monaco, monospace; }
+  .sim-box .lbl { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.2rem; }
+  .sim-controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+  .sim-btn { padding: 0.5rem 1rem; border: none; border-radius: 0.5rem; font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; }
+  .sim-btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+  .sim-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .sim-btn.t1 { background: var(--blue); color: #fff; }
+  .sim-btn.t2 { background: var(--purple); color: #fff; }
+  .sim-btn.crt-good { background: var(--green); color: #000; }
+  .sim-btn.crt-bad { background: var(--red); color: #fff; }
+  .sim-btn.reset { background: var(--surface2); color: var(--text); }
+  .sim-log { margin-top: 1rem; max-height: 250px; overflow-y: auto; font-size: 0.78rem; font-family: 'SF Mono', Monaco, monospace; background: var(--bg); border-radius: 0.5rem; padding: 0.75rem; }
+  .sim-log div { padding: 0.2rem 0; border-bottom: 1px solid rgba(71,85,105,0.3); }
+
+  .key-const { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin: 1rem 0; }
+  .kc { background: var(--bg); border-radius: 0.75rem; padding: 1rem; border: 1px solid var(--surface2); text-align: center; }
+  .kc .val { font-size: 1.5rem; font-weight: 800; color: var(--text); }
+  .kc .name { font-size: 0.8rem; color: var(--cyan); font-weight: 600; margin-top: 0.2rem; }
+  .kc .desc { font-size: 0.7rem; color: var(--muted); }
+
+  .reassess-loop { border: 2px dashed var(--yellow); border-radius: 1rem; padding: 1.5rem; margin: 1rem 0; text-align: center; }
+  .reassess-loop .label { color: var(--yellow); font-weight: 700; font-size: 1rem; }
+  .reassess-loop .detail { color: var(--muted); font-size: 0.85rem; margin-top: 0.5rem; }
+
+  @media (max-width: 700px) {
+    .flow-branch, .flow-branch-3 { flex-direction: column; align-items: center; }
+    .container { padding: 1rem; }
+    h1 { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>🫀 ANDROMEDA-SHOCK 2 — CRT-PHR Algorithm</h1>
+<p class="subtitle">Visual explainer of the Capillary Refill Time – Personalized Hemodynamic Resuscitation algorithm as implemented in the web app. Based on Hernandez et al., JAMA 2025.</p>
+
+<!-- KEY NUMBERS -->
+<h2>🔢 Key Parameters</h2>
+<div class="key-const">
+  <div class="kc"><div class="val" style="color:var(--green)">≤ 3s</div><div class="name">CRT Normal</div><div class="desc">Target: normalise CRT</div></div>
+  <div class="kc"><div class="val" style="color:var(--red)">&gt; 3s</div><div class="name">CRT Abnormal</div><div class="desc">Triggers intervention</div></div>
+  <div class="kc"><div class="val">6 hr</div><div class="name">Protocol Window</div><div class="desc">Active resuscitation period</div></div>
+  <div class="kc"><div class="val">1 hr</div><div class="name">Reassessment</div><div class="desc">CRT checked every hour</div></div>
+  <div class="kc"><div class="val">100 mL</div><div class="name">Fluid Bolus</div><div class="desc">Crystalloid per bolus</div></div>
+  <div class="kc"><div class="val">≤ 3</div><div class="name">Max Boluses</div><div class="desc">Before mandatory CRT reassess</div></div>
+</div>
+
+<!-- ALGORITHM PHASES -->
+<h2>📦 Algorithm Phases (State Machine)</h2>
+<p style="color:var(--muted); margin-bottom:1rem;">The app uses a <code>useReducer</code> state machine. Each phase corresponds to a screen/step in the wizard.</p>
+<div class="phase-grid">
+  <div class="phase-card" style="border-color:var(--green)"><div class="ph-name">initial</div><div class="ph-title">Initial Assessment</div><div class="ph-desc">Confirm septic shock criteria + measure baseline CRT</div></div>
+  <div class="phase-card" style="border-color:var(--green)"><div class="ph-name">normal_monitoring</div><div class="ph-title">Normal Monitoring</div><div class="ph-desc">CRT ≤ 3s — hourly reassessment</div></div>
+  <div class="phase-card" style="border-color:var(--blue)"><div class="ph-name">tier1_pp</div><div class="ph-title">Tier 1: Pulse Pressure</div><div class="ph-desc">SBP/DBP → calculate PP and MAP</div></div>
+  <div class="phase-card" style="border-color:var(--blue)"><div class="ph-name">tier1_fr</div><div class="ph-title">Tier 1: Fluid Responsiveness</div><div class="ph-desc">PLR+VTI, PPV/SVV, EEOT assessment</div></div>
+  <div class="phase-card" style="border-color:var(--blue)"><div class="ph-name">tier1_fluid</div><div class="ph-title">Tier 1: Fluid Bolus</div><div class="ph-desc">100 mL crystalloid, safety checks, repeat FR</div></div>
+  <div class="phase-card" style="border-color:var(--yellow)"><div class="ph-name">crt_reassess</div><div class="ph-title">CRT Reassessment</div><div class="ph-desc">Re-measure CRT → route to next step or monitoring</div></div>
+  <div class="phase-card" style="border-color:var(--purple)"><div class="ph-name">tier2_echo</div><div class="ph-title">Tier 2: Echo</div><div class="ph-desc">FAC, VTI, RV/LV ratio, CVP → identify cardiac phenotype</div></div>
+  <div class="phase-card" style="border-color:var(--purple)"><div class="ph-name">tier2_lv_dobutamine</div><div class="ph-title">Tier 2: LV Dobutamine</div><div class="ph-desc">FAC<40% + VTI<14 → dobutamine 5-20 mcg/kg/min</div></div>
+  <div class="phase-card" style="border-color:var(--purple)"><div class="ph-name">tier2_rv_management</div><div class="ph-title">Tier 2: RV Management</div><div class="ph-desc">RV/LV>1 + CVP>8 → RV-protective strategy</div></div>
+  <div class="phase-card" style="border-color:var(--purple)"><div class="ph-name">tier2_fr</div><div class="ph-title">Tier 2: Fluid Responsiveness</div><div class="ph-desc">Repeat FR assessment after cardiac interventions</div></div>
+  <div class="phase-card" style="border-color:var(--purple)"><div class="ph-name">tier2_map</div><div class="ph-title">Tier 2: MAP Test</div><div class="ph-desc">Chronic HTN only: target MAP 80-85 × 1 hr</div></div>
+  <div class="phase-card" style="border-color:var(--purple)"><div class="ph-name">tier2_dobutamine</div><div class="ph-title">Tier 2: Dobutamine Test</div><div class="ph-desc">Fixed 5 mcg/kg/min × 1 hr empirical trial</div></div>
+  <div class="phase-card" style="border-color:var(--red)"><div class="ph-name">tier2_rescue</div><div class="ph-title">Rescue Therapies</div><div class="ph-desc">Refractory shock — clinician judgment</div></div>
+  <div class="phase-card" style="border-color:var(--muted)"><div class="ph-name">print_summary</div><div class="ph-title">Summary</div><div class="ph-desc">CRT history, decisions, print-friendly report</div></div>
+</div>
+
+<!-- MASTER FLOWCHART -->
+<h2>🔀 Master Algorithm Flowchart</h2>
+
+<div class="flow">
+  <div class="flow-node start">
+    <div class="label">🫀 Initial Assessment</div>
+    <div class="detail">Confirm: NE ≥ 0.1 mcg/kg/min for MAP ≥ 65 + Lactate ≥ 2 mmol/L<br>Measure baseline CRT (glass slide, 15s press, chronometer)</div>
+  </div>
+  <div class="flow-arrow"></div>
+
+  <div class="flow-node decision">
+    <div class="label">CRT ≤ 3 seconds?</div>
+  </div>
+  <div class="flow-arrow"></div>
+
+  <div class="flow-branch">
+    <div>
+      <div class="branch-label branch-yes">✓ CRT ≤ 3s (Normal)</div>
+      <div class="flow-node result" style="border-color:var(--green)">
+        <div class="label">Normal Monitoring</div>
+        <div class="detail">Reassess CRT every 1 hour<br>If CRT deteriorates &gt; 3s → re-enter Tier 1</div>
+      </div>
+    </div>
+    <div>
+      <div class="branch-label branch-no">✕ CRT &gt; 3s (Abnormal)</div>
+      <div class="flow-node action">
+        <div class="label">Enter TIER 1</div>
+        <div class="detail">Pulse Pressure → Fluid Responsiveness → Fluid Bolus</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TIER 1 DETAIL -->
+<h2 style="color:var(--blue)">⬛ TIER 1 — Hemodynamic Optimisation</h2>
+
+<div class="flow">
+  <div class="flow-node action">
+    <div class="label">Step 1: Pulse Pressure Assessment</div>
+    <div class="detail">Enter SBP + DBP → calculate PP and MAP<br><strong>PP = SBP − DBP &nbsp;|&nbsp; MAP = (SBP + 2×DBP) / 3</strong></div>
+  </div>
+  <div class="flow-arrow"></div>
+
+  <div class="flow-node decision">
+    <div class="label">PP ≤ 30 mmHg or DBP &lt; 30 mmHg?</div>
+  </div>
+  <div class="flow-arrow"></div>
+
+  <div class="flow-branch">
+    <div>
+      <div class="branch-label branch-no" style="background:rgba(234,179,8,0.2);color:var(--yellow)">⚠ YES — Low PP/DBP</div>
+      <div class="flow-node action" style="border-color:var(--yellow)">
+        <div class="label">Uptitrate Norepinephrine</div>
+        <div class="detail">Target: DBP ≥ 30 mmHg, PP &gt; 30 mmHg<br>Increase NE by 0.05–0.1 mcg/kg/min increments<br>Confirm before proceeding</div>
+      </div>
+    </div>
+    <div>
+      <div class="branch-label branch-yes">✓ PP &gt; 30 & DBP ≥ 30</div>
+      <div class="flow-node result" style="border-color:var(--green)">
+        <div class="label">Vasopressor Adequate</div>
+        <div class="detail">Proceed directly to FR assessment</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="flow" style="margin-top:0">
+  <div class="flow-arrow"></div>
+  <div class="flow-node action">
+    <div class="label">Step 2: Fluid Responsiveness (FR) Assessment</div>
+    <div class="detail">
+      <strong>Methods (in order of preference):</strong><br>
+      1. PLR + VTI (≥10% increase) &nbsp;<span class="badge badge-green">Preferred</span><br>
+      2. PLR clinical assessment<br>
+      3. End-expiratory occlusion + VTI (ventilated only)<br>
+      4. PPV/SVV (&gt;13%, fully ventilated + regular rhythm)<br>
+      <em style="color:var(--yellow)">⚠ FR is MANDATORY before any fluid</em>
+    </div>
+  </div>
+  <div class="flow-arrow"></div>
+
+  <div class="flow-branch">
+    <div>
+      <div class="branch-label branch-yes">FR Positive</div>
+      <div class="flow-node action" style="border-color:var(--green)">
+        <div class="label">100 mL Crystalloid Bolus</div>
+        <div class="detail">
+          Infuse over 10 min<br>
+          Safety checks: SpO₂, rales, CVP<br>
+          Re-check FR → repeat bolus if still FR+ (max 3)<br>
+          <strong>Stop if:</strong> worsening O₂, new rales, FR−
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="branch-label branch-no">FR Negative / Safety Issue</div>
+      <div class="flow-node result" style="border-color:var(--orange)">
+        <div class="label">No Fluid → CRT Reassess</div>
+        <div class="detail">Skip bolus, proceed to CRT reassessment</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CRT REASSESSMENT -->
+<div class="reassess-loop">
+  <div class="label">🔄 CRT Reassessment (after every intervention)</div>
+  <div class="detail">
+    CRT ≤ 3s → <strong style="color:var(--green)">Normal Monitoring</strong> (hourly) &nbsp;|&nbsp;
+    CRT &gt; 3s → <strong style="color:var(--red)">Next intervention</strong> (smart routing based on what's been done)
+  </div>
+</div>
+
+<!-- CRT ROUTING LOGIC -->
+<h3>🧠 CRT Reassessment: Smart Routing Logic</h3>
+<div class="card card-accent">
+  <p style="color:var(--muted); font-size:0.85rem; margin-bottom:0.75rem;">When CRT is still abnormal, the app uses <code>getNextPhaseAfterAbnormal()</code> to determine the next step based on context and completion state:</p>
+  <table class="tbl">
+    <tr><th>Context</th><th>Next Phase</th><th>Reason</th></tr>
+    <tr><td><code>initial</code> or <code>post_ne</code></td><td style="color:var(--blue)">tier1_fr</td><td>Haven't done FR yet</td></tr>
+    <tr><td>Tier 1 done, echo not done</td><td style="color:var(--purple)">tier2_echo</td><td>Enter Tier 2</td></tr>
+    <tr><td>Echo = LV dysfunction, untreated</td><td style="color:var(--purple)">tier2_lv_dobutamine</td><td>Phenotype-specific</td></tr>
+    <tr><td>Echo = RV failure, untreated</td><td style="color:var(--purple)">tier2_rv_management</td><td>Phenotype-specific</td></tr>
+    <tr><td>Cardiac interventions done, FR not repeated</td><td style="color:var(--purple)">tier2_fr</td><td>Repeat FR assessment</td></tr>
+    <tr><td>Chronic HTN + MAP test not done</td><td style="color:var(--purple)">tier2_map</td><td>Personalised MAP target</td></tr>
+    <tr><td>MAP done, dobutamine not tried</td><td style="color:var(--purple)">tier2_dobutamine</td><td>Empirical trial</td></tr>
+    <tr><td>All Tier 2 exhausted</td><td style="color:var(--red)">tier2_rescue</td><td>Refractory shock</td></tr>
+  </table>
+</div>
+
+<!-- TIER 2 DETAIL -->
+<h2 style="color:var(--purple)">⬛ TIER 2 — Phenotype-Based Interventions</h2>
+<p style="color:var(--muted); margin-bottom:1rem;">Only ~35% of patients need Tier 2. Entered when CRT remains abnormal after Tier 1.</p>
+
+<div class="flow">
+  <div class="flow-node action" style="border-color:var(--purple)">
+    <div class="label">Step 1: Bedside Echocardiography</div>
+    <div class="detail">
+      <strong>LV:</strong> FAC &lt; 40% AND VTI &lt; 14 cm → LV dysfunction<br>
+      <strong>RV:</strong> RV/LV &gt; 1 AND CVP &gt; 8 mmHg → RV failure<br>
+      <strong>Neither:</strong> No specific cardiac phenotype
+    </div>
+  </div>
+  <div class="flow-arrow"></div>
+
+  <div class="flow-branch-3">
+    <div>
+      <div class="branch-label" style="background:rgba(239,68,68,0.2);color:var(--red)">LV Dysfunction</div>
+      <div class="flow-node action" style="border-color:var(--red)">
+        <div class="label">LV Dobutamine</div>
+        <div class="detail">Start 5 mcg/kg/min<br>Titrate q15-30min to max 20<br>Stop if: arrhythmia, HR&gt;120<br>Reassess CRT at 1 hr</div>
+      </div>
+    </div>
+    <div>
+      <div class="branch-label" style="background:rgba(249,115,22,0.2);color:var(--orange)">RV Failure</div>
+      <div class="flow-node action" style="border-color:var(--orange)">
+        <div class="label">RV Management</div>
+        <div class="detail">Avoid fluid loading<br>Add vasopressin 0.03-0.04 U/min<br>Consider iNO, prone positioning<br>Optimise ventilator, HR</div>
+      </div>
+    </div>
+    <div>
+      <div class="branch-label" style="background:rgba(148,163,184,0.2);color:var(--muted)">No Cardiac Dx</div>
+      <div class="flow-node action" style="border-color:var(--muted)">
+        <div class="label">Skip to Tier 2 FR</div>
+        <div class="detail">Repeat fluid responsiveness<br>Then MAP test / dobutamine test</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="flow" style="margin-top:1rem">
+  <div class="flow-arrow"></div>
+  <div class="flow-node decision" style="border-color:var(--yellow)">
+    <div class="label">CRT Reassessment after each intervention</div>
+    <div class="detail">CRT ≤ 3s → Monitoring &nbsp;|&nbsp; CRT &gt; 3s → Next Tier 2 step</div>
+  </div>
+  <div class="flow-arrow"></div>
+
+  <div class="flow-node action" style="border-color:var(--purple)">
+    <div class="label">Tier 2 FR → MAP Test → Dobutamine Test</div>
+    <div class="detail">
+      <strong>Tier 2 FR:</strong> Repeat fluid responsiveness, bolus if FR+<br>
+      <strong>MAP Test:</strong> Chronic HTN only — target 80-85 mmHg × 1 hr<br>
+      <strong>Dobutamine Test:</strong> Fixed 5 mcg/kg/min × 1 hr (no titration)
+    </div>
+  </div>
+  <div class="flow-arrow"></div>
+
+  <div class="flow-node danger">
+    <div class="label">Rescue Therapies</div>
+    <div class="detail">
+      All interventions exhausted. Clinician judgment:<br>
+      Stress-dose steroids &nbsp;|&nbsp; High-volume hemofiltration<br>
+      Extracorporeal purification &nbsp;|&nbsp; Additional vasopressors<br>
+      Reassess diagnosis
+    </div>
+  </div>
+</div>
+
+<!-- ECHO DECISION TABLE -->
+<h3>🫁 Echo Decision Criteria</h3>
+<div class="card">
+<table class="tbl">
+  <tr><th>Measurement</th><th>Threshold</th><th>Meaning</th><th>Action</th></tr>
+  <tr><td>FAC</td><td style="color:var(--red)">&lt; 40%</td><td>LV systolic dysfunction</td><td rowspan="2" style="vertical-align:middle; color:var(--red)">→ Dobutamine (if VTI also low)</td></tr>
+  <tr><td>Aortic VTI</td><td style="color:var(--red)">&lt; 14 cm</td><td>Low stroke volume</td></tr>
+  <tr><td>RV/LV ratio</td><td style="color:var(--orange)">&gt; 1</td><td>RV dilatation</td><td rowspan="2" style="vertical-align:middle; color:var(--orange)">→ RV management (if CVP also high)</td></tr>
+  <tr><td>CVP</td><td style="color:var(--orange)">&gt; 8 mmHg</td><td>Elevated RV filling pressure</td></tr>
+</table>
+<p style="color:var(--muted); font-size:0.8rem; margin-top:0.5rem;">Both criteria within each phenotype must be met. If both LV and RV criteria met simultaneously, LV takes priority.</p>
+</div>
+
+<!-- FR METHODS -->
+<h3>💧 Fluid Responsiveness Methods</h3>
+<div class="card">
+<table class="tbl">
+  <tr><th>Method</th><th>Threshold</th><th>Requirements</th><th>Priority</th></tr>
+  <tr><td>PLR + VTI</td><td>≥ 10% VTI increase</td><td>Echo available</td><td><span class="badge badge-green">Preferred</span></td></tr>
+  <tr><td>PLR (clinical)</td><td>Clinical assessment</td><td>Any patient</td><td><span class="badge badge-blue">Alternative</span></td></tr>
+  <tr><td>EEOT + VTI</td><td>≥ 10% VTI increase</td><td>Mechanically ventilated</td><td><span class="badge badge-blue">Alternative</span></td></tr>
+  <tr><td>PPV / SVV</td><td>&gt; 13%</td><td>Fully ventilated, regular rhythm, TV ≥ 8 mL/kg</td><td><span class="badge badge-blue">Alternative</span></td></tr>
+</table>
+</div>
+
+<!-- SAFETY STOPS -->
+<h2>🛑 Safety Stops</h2>
+<div class="card card-danger">
+  <p style="font-weight:700; color:var(--red); margin-bottom:0.5rem;">Fluid administration is withheld when:</p>
+  <ul style="margin-left:1.5rem; color:var(--text); font-size:0.9rem;">
+    <li><strong>Worsening oxygenation</strong> — SpO₂ decreasing or FiO₂ increasing</li>
+    <li><strong>New pulmonary rales</strong> — bilateral crackles on auscultation</li>
+    <li><strong>FR Negative</strong> — no increase in cardiac output after test</li>
+    <li><strong>Max boluses reached</strong> — 3 boluses before mandatory reassessment</li>
+    <li><strong>RV failure identified</strong> — echo shows RV/LV &gt;1 + CVP &gt;8 → NO further fluids</li>
+  </ul>
+</div>
+
+<!-- DOBUTAMINE COMPARISON -->
+<h3>💊 Two Types of Dobutamine in the Protocol</h3>
+<div class="card">
+<table class="tbl">
+  <tr><th></th><th style="color:var(--red)">LV-Targeted (Tier 2 Echo)</th><th style="color:var(--yellow)">Empirical Test (Tier 2 Final)</th></tr>
+  <tr><td><strong>Indication</strong></td><td>FAC &lt;40% + VTI &lt;14</td><td>CRT still abnormal, no specific dx</td></tr>
+  <tr><td><strong>Starting dose</strong></td><td>5 mcg/kg/min</td><td>5 mcg/kg/min (fixed)</td></tr>
+  <tr><td><strong>Titration</strong></td><td>Yes — up to 20 mcg/kg/min q15-30min</td><td>No titration</td></tr>
+  <tr><td><strong>Duration</strong></td><td>1 hr then reassess</td><td>Exactly 1 hr then stop/continue</td></tr>
+  <tr><td><strong>Stop criteria</strong></td><td>Arrhythmia, HR &gt;120</td><td>Arrhythmia, HR &gt;130, deterioration</td></tr>
+</table>
+</div>
+
+<!-- INTERACTIVE SIMULATOR -->
+<h2>🎯 Interactive Algorithm Simulator</h2>
+<p style="color:var(--muted); margin-bottom:0.5rem;">Walk through the algorithm by clicking buttons. Watch the phase, CRT, and decision log update in real-time.</p>
+
+<div class="sim">
+  <div class="sim-display">
+    <div class="sim-box"><div class="num" id="s-phase" style="color:var(--cyan); font-size:1rem;">initial</div><div class="lbl">Current Phase</div></div>
+    <div class="sim-box"><div class="num" id="s-crt" style="color:var(--muted)">—</div><div class="lbl">Last CRT (s)</div></div>
+    <div class="sim-box"><div class="num" id="s-tier" style="color:var(--blue)">—</div><div class="lbl">Tier</div></div>
+    <div class="sim-box"><div class="num" id="s-fluid" style="color:var(--text)">0</div><div class="lbl">Fluid (mL)</div></div>
+    <div class="sim-box"><div class="num" id="s-cardiac" style="color:var(--muted)">—</div><div class="lbl">Cardiac Dx</div></div>
+    <div class="sim-box"><div class="num" id="s-bolus" style="color:var(--text)">0</div><div class="lbl">Boluses</div></div>
+  </div>
+
+  <div class="sim-controls">
+    <button class="sim-btn crt-bad" onclick="simCRT(5)">CRT 5s (Abnormal)</button>
+    <button class="sim-btn crt-good" onclick="simCRT(2)">CRT 2s (Normal)</button>
+    <button class="sim-btn t1" onclick="simAction('pp_ok')">PP Normal</button>
+    <button class="sim-btn t1" onclick="simAction('pp_low')">PP Low → NE↑</button>
+    <button class="sim-btn t1" onclick="simAction('fr_pos')">FR Positive</button>
+    <button class="sim-btn t1" onclick="simAction('fr_neg')">FR Negative</button>
+    <button class="sim-btn t1" onclick="simAction('bolus')">Give Bolus</button>
+    <button class="sim-btn t2" onclick="simAction('echo_lv')">Echo: LV Dx</button>
+    <button class="sim-btn t2" onclick="simAction('echo_rv')">Echo: RV Dx</button>
+    <button class="sim-btn t2" onclick="simAction('echo_none')">Echo: Normal</button>
+    <button class="sim-btn t2" onclick="simAction('map_test')">MAP Test</button>
+    <button class="sim-btn t2" onclick="simAction('dob_test')">Dobutamine Test</button>
+    <button class="sim-btn t2" onclick="simAction('rescue')">Rescue</button>
+    <button class="sim-btn reset" onclick="simReset()">↺ Reset</button>
+  </div>
+
+  <div class="sim-log" id="s-log">
+    <div style="color:var(--muted)">Click "CRT 5s" to start the protocol with abnormal CRT, or "CRT 2s" for normal.</div>
+  </div>
+</div>
+
+<script>
+const S = { phase:'initial', crt:null, tier:null, fluid:0, boluses:0, cardiac:null, t2:{ echo:false, fr:false, map:false, dob:false }, htn:false };
+
+function upd() {
+  document.getElementById('s-phase').textContent = S.phase;
+  document.getElementById('s-crt').textContent = S.crt !== null ? S.crt + 's' : '—';
+  document.getElementById('s-crt').style.color = S.crt === null ? 'var(--muted)' : S.crt <= 3 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('s-tier').textContent = S.tier || '—';
+  document.getElementById('s-tier').style.color = S.tier === 'Tier 1' ? 'var(--blue)' : S.tier === 'Tier 2' ? 'var(--purple)' : 'var(--muted)';
+  document.getElementById('s-fluid').textContent = S.fluid;
+  document.getElementById('s-cardiac').textContent = S.cardiac || '—';
+  document.getElementById('s-bolus').textContent = S.boluses;
+}
+
+function log(msg, color) {
+  const el = document.getElementById('s-log');
+  const d = document.createElement('div');
+  d.style.color = color || 'var(--text)';
+  d.textContent = `[${S.phase}] ${msg}`;
+  el.prepend(d);
+}
+
+function simCRT(val) {
+  S.crt = val;
+  if (S.phase === 'initial') {
+    if (val <= 3) { S.phase = 'normal_monitoring'; log('CRT ' + val + 's — NORMAL → Monitoring', 'var(--green)'); }
+    else { S.phase = 'tier1_pp'; S.tier = 'Tier 1'; log('CRT ' + val + 's — ABNORMAL → Tier 1: Pulse Pressure', 'var(--red)'); }
+  } else {
+    if (val <= 3) { S.phase = 'normal_monitoring'; log('CRT ' + val + 's — NORMALIZED ✓ → Monitoring', 'var(--green)'); }
+    else {
+      // Smart routing
+      if (!S.t2.echo && S.tier !== 'Tier 1') { S.phase = 'tier2_echo'; S.tier = 'Tier 2'; log('CRT ' + val + 's still abnormal → Tier 2: Echo', 'var(--purple)'); }
+      else if (S.tier === 'Tier 1') { S.phase = 'tier1_fr'; log('CRT ' + val + 's still abnormal → Tier 1: FR Assessment', 'var(--yellow)'); }
+      else if (S.cardiac === 'LV' && !S.t2.lv) { S.phase = 'tier2_lv_dob'; log('CRT abnormal → LV Dobutamine', 'var(--purple)'); }
+      else if (S.cardiac === 'RV' && !S.t2.rv) { S.phase = 'tier2_rv'; log('CRT abnormal → RV Management', 'var(--purple)'); }
+      else if (!S.t2.fr) { S.phase = 'tier2_fr'; log('CRT abnormal → Tier 2 FR', 'var(--purple)'); }
+      else if (!S.t2.map) { S.phase = 'tier2_map'; log('CRT abnormal → MAP Test', 'var(--purple)'); }
+      else if (!S.t2.dob) { S.phase = 'tier2_dob'; log('CRT abnormal → Dobutamine Test', 'var(--purple)'); }
+      else { S.phase = 'rescue'; log('CRT abnormal — all interventions exhausted → RESCUE', 'var(--red)'); }
+    }
+  }
+  upd();
+}
+
+function simAction(a) {
+  switch(a) {
+    case 'pp_ok': S.phase = 'tier1_fr'; log('PP normal (>30), DBP ≥ 30 → FR Assessment', 'var(--blue)'); break;
+    case 'pp_low': S.phase = 'tier1_fr'; log('PP ≤ 30 or DBP < 30 → NE uptitrated → FR Assessment', 'var(--yellow)'); break;
+    case 'fr_pos': S.phase = 'tier1_fluid'; log('FR POSITIVE → Administer fluid bolus', 'var(--green)'); break;
+    case 'fr_neg': S.phase = 'crt_reassess'; log('FR NEGATIVE → No fluid, CRT reassessment', 'var(--orange)'); break;
+    case 'bolus': S.fluid += 100; S.boluses++; S.phase = 'crt_reassess'; log('Bolus given: 100 mL (total: ' + S.fluid + ' mL) → CRT reassessment', 'var(--blue)'); break;
+    case 'echo_lv': S.t2.echo = true; S.cardiac = 'LV'; S.phase = 'tier2_lv_dob'; S.tier = 'Tier 2'; log('Echo: FAC<40% + VTI<14 → LV Dysfunction → Dobutamine', 'var(--red)'); break;
+    case 'echo_rv': S.t2.echo = true; S.cardiac = 'RV'; S.phase = 'tier2_rv'; S.tier = 'Tier 2'; log('Echo: RV/LV>1 + CVP>8 → RV Failure → RV Management', 'var(--orange)'); break;
+    case 'echo_none': S.t2.echo = true; S.cardiac = 'None'; S.phase = 'tier2_fr'; S.tier = 'Tier 2'; log('Echo: No cardiac dysfunction → Tier 2 FR', 'var(--muted)'); break;
+    case 'map_test': S.t2.map = true; S.phase = 'crt_reassess'; log('MAP test (80-85 mmHg × 1 hr) completed → CRT reassessment', 'var(--purple)'); break;
+    case 'dob_test': S.t2.dob = true; S.phase = 'crt_reassess'; log('Dobutamine test (5 mcg/kg/min × 1 hr) completed → CRT reassessment', 'var(--purple)'); break;
+    case 'rescue': S.phase = 'rescue'; log('Rescue therapies — refractory shock, clinician judgment', 'var(--red)'); break;
+  }
+  upd();
+}
+
+function simReset() {
+  S.phase='initial'; S.crt=null; S.tier=null; S.fluid=0; S.boluses=0; S.cardiac=null;
+  S.t2={ echo:false, fr:false, map:false, dob:false, lv:false, rv:false };
+  document.getElementById('s-log').innerHTML = '<div style="color:var(--muted)">Reset. Click CRT button to start.</div>';
+  upd();
+}
+upd();
+</script>
+
+<!-- MONITORING SCHEDULE -->
+<h2>⏰ Monitoring Schedule</h2>
+<div class="card card-success">
+  <table class="tbl">
+    <tr><th>When</th><th>Action</th><th>If Abnormal</th></tr>
+    <tr><td>During 6-hour protocol</td><td>CRT every 1 hour + after each intervention</td><td>Continue/advance algorithm</td></tr>
+    <tr><td>CRT normalised</td><td>Hourly monitoring, maintain current therapy</td><td>Re-enter Tier 1 if CRT &gt; 3s</td></tr>
+    <tr><td>Protocol expired (6h)</td><td>View summary, continue standard care</td><td>Clinical judgment</td></tr>
+  </table>
+</div>
+
+<!-- FOOTER -->
+<div style="margin-top:3rem; padding:1.5rem; border-top:1px solid var(--surface2); text-align:center;">
+  <p style="color:var(--muted); font-size:0.8rem;">
+    ANDROMEDA-SHOCK 2 CRT-PHR Algorithm — Visual Explainer<br>
+    Reference: Hernandez G, Ospina-Tascón GA, Kattan E, et al. <em>JAMA</em> 2025; 334(22): 1988-1999<br>
+    App: <a href="https://andromeda-shock.vercel.app" style="color:var(--cyan)">andromeda-shock.vercel.app</a> &nbsp;|&nbsp;
+    Source: <a href="https://github.com/amornj/andromeda-shock" style="color:var(--cyan)">github.com/amornj/andromeda-shock</a>
+  </p>
+</div>
+
+</div>
+</body>
+</html>
